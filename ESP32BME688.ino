@@ -6,7 +6,7 @@
 #include "WiFi.h"						// This header is part of the standard library.  https://www.arduino.cc/en/Reference/WiFi
 #include <Wire.h>						// This header is part of the standard library.  https://www.arduino.cc/en/reference/wire
 #include <PubSubClient.h>			// PubSub is the MQTT API.  Author: Nick O'Leary  https://github.com/knolleary/pubsubclient
-#include <Adafruit_Sensor.h>
+#include <Adafruit_Sensor.h>		// Adafruit Unified Sensor Driver.  https://github.com/adafruit/Adafruit_Sensor
 #include "Adafruit_BME680.h"		// Adafruit BME680 (and BME688) library.  https://github.com/adafruit/Adafruit_BME680
 #include "privateInfo.h"			// I use this file to hide my network information from random people browsing my GitHub repo.
 #include <Adafruit_NeoPixel.h>	// The Adafruit NeoPixel library to drive the RGB LED on the QT Py.	https://github.com/adafruit/Adafruit_NeoPixel
@@ -195,15 +195,15 @@ void readBme()
 	Serial.print( "Temperature = " );
 	Serial.print( bme.temperature );
 	Serial.println( " *C" );
-	
+
 	Serial.print( "Pressure = " );
 	Serial.print( bme.pressure / 100.0 );
 	Serial.println( " hPa" );
-	
+
 	Serial.print( "Humidity = " );
 	Serial.print( bme.humidity );
 	Serial.println( " %" );
-	
+
 	Serial.print( "Gas = " );
 	Serial.print( bme.gas_resistance / 1000.0 );
 	Serial.println( " KOhms" );
@@ -211,7 +211,7 @@ void readBme()
 	Serial.print( "Approx. Altitude = " );
 	Serial.print( bme.readAltitude( SEALEVELPRESSURE_HPA ) );
 	Serial.println( " m" );
-	
+
 	Serial.println();
 //	delay( 6000 );
 }
