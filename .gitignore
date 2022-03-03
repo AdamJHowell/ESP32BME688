@@ -1,6 +1,7 @@
 .vscode/
 .idea/
 *.iml
+privateInfo.h
 
 # Prerequisites
 *.d
