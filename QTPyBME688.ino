@@ -1,9 +1,10 @@
 /*
- * This sketch is a branc of my PubSubWeather sketch.
- * This sketch will use a AHT20/BMP280 combination sensor to show temperature, pressure, and humidity.
- * The ESP-32 SDA pin is GPIO21, and SCL is GPIO22.
+ * This sketch is a branch of my PubSubWeather sketch.
+ * This sketch will use a BME688 sensor to show temperature, pressure, humidity, and gas readings.
+ * @copyright   Copyright © 2022 Adam Howell
+ * @licence     The MIT License (MIT)
  */
-#include "WiFi.h"						// This header is part of the standard library.  https://www.arduino.cc/en/Reference/WiFi
+#include <WiFi.h>						// This header is part of the standard library.  https://www.arduino.cc/en/Reference/WiFi
 #include <Wire.h>						// This header is part of the standard library.  https://www.arduino.cc/en/reference/wire
 #include <PubSubClient.h>			// PubSub is the MQTT API.  Author: Nick O'Leary  https://github.com/knolleary/pubsubclient
 #include <Adafruit_Sensor.h>		// Adafruit Unified Sensor Driver.  https://github.com/adafruit/Adafruit_Sensor
@@ -30,7 +31,7 @@
 //const char* wifiPassword = "yourPassword";		// Typically kept in "privateInfo.h".
 //const char* mqttBroker = "yourBrokerAddress";	// Typically kept in "privateInfo.h".
 //const int mqttPort = 1883;							// Typically kept in "privateInfo.h".
-const char* mqttTopic = "ajhWeather";
+const char* mqttTopic = "espWeather";
 const String sketchName = "ESP32BME688";
 const char* notes = "Adafruit ESP32-S2 QT Py BME688";
 char ipAddress[16];
@@ -58,6 +59,7 @@ void setup()
 	while( !Serial )
 		delay( 100 );
 	Wire.setPins( SDA1, SCL1 );	// This is what selects the Stemma QT port, otherwise the two pin headers will be I2C.
+//	Wire1.setPins( SDA1, SCL1 );
 	Wire.begin();
 
 #if defined( NEOPIXEL_POWER )
@@ -70,26 +72,37 @@ void setup()
 	pixels.begin();
 	pixels.setBrightness( 20 );
 
+	// Set color to gray to indicate wetup is underway.
+	pixels.fill( 0x0000FF );
+	pixels.show();
+
 	delay( 10 );
 	Serial.println( '\n' );
 	Serial.println( sketchName + " is beginning its setup()." );
-//	Wire.begin();	// Join I2C bus.
+	Serial.println( __FILE__ );
 
 	// Set the ipAddress char array to a default value.
 	snprintf( ipAddress, 16, "127.0.0.1" );
 
-	Wire1.setPins( SDA1, SCL1 );
+	// Set the MQTT client parameters.
+	mqttClient.setServer( mqttBroker, mqttPort );
+
+	// Get the MAC address and store it in macAddress.
+	snprintf( macAddress, 18, "%s", WiFi.macAddress().c_str() );
+
+	// Try to connect to the configured WiFi network, up to 10 times.
+	wifiConnect( 20 );
 
 	Serial.println( "Initializing the BME2688 sensor..." );
 	if( !bme.begin() )
 	{
-		Serial.println( "Could not find a valid BME2688 sensor, check wiring!" );
 		while( 1 )
 		{
-			// Set color to red and wait a half second.
+			Serial.println( "Could not find a valid BME2688 sensor, check wiring!" );
+			// Set color to red and wait one second.
 			pixels.fill( 0xFF0000 );
 			pixels.show();
-			delay( 500 );
+			delay( 1000 );
 			// Turn the LED off and wait a half second.
 			pixels.fill( 0x000000 );
 			pixels.show();
@@ -104,15 +117,6 @@ void setup()
 	bme.setPressureOversampling( BME680_OS_4X );
 	bme.setIIRFilterSize( BME680_FILTER_SIZE_3 );
 	bme.setGasHeater( 320, 150 );		// 320*C for 150 ms
-
-	// Set the MQTT client parameters.
-	mqttClient.setServer( mqttBroker, mqttPort );
-
-	// Get the MAC address and store it in macAddress.
-	snprintf( macAddress, 18, "%s", WiFi.macAddress().c_str() );
-
-	// Try to connect to the configured WiFi network, up to 10 times.
-	wifiConnect( 20 );
 } // End of setup() function.
 
 
