@@ -19,12 +19,10 @@
 #define BME_MISO 12
 #define BME_MOSI 11
 #define BME_CS 10
-#define SEALEVELPRESSURE_HPA ( 1025.0 )
 
 
 /**
- * Declare network variables.
- * Adjust the commented-out variables to match your network and broker settings.
+ * Declare global variables.
  * The commented-out variables are stored in "privateInfo.h", which I do not upload to GitHub.
  */
 //const char* wifiSsid = "yourSSID";				// Typically kept in "privateInfo.h".
@@ -32,13 +30,15 @@
 //const char* mqttBroker = "yourBrokerAddress";	// Typically kept in "privateInfo.h".
 //const int mqttPort = 1883;							// Typically kept in "privateInfo.h".
 const char* mqttTopic = "espWeather";
-const String sketchName = "ESP32BME688";
+const String sketchName = "QTPyBME688";
 const char* notes = "Adafruit ESP32-S2 QT Py BME688";
 char ipAddress[16];
 char macAddress[18];
 int loopCount = 0;
-int mqttPublishDelayMS = 60000;
-int pirPin = 8;											// The GPIO that the PIR "out" pin is connected to.
+int publishDelay = 60000;
+float SEALEVELPRESSURE_HPA = 1025.0;
+unsigned long lastPublish = 0;
+
 
 // Create class objects.
 WiFiClient espClient;							// Network client.
@@ -49,18 +49,9 @@ Adafruit_BME680 bme;								// I2C.
 //Adafruit_BME680 bme( BME_CS, BME_MOSI, BME_MISO,  BME_SCK );		// Software SPI.
 
 
-/**
- * The setup() function runs once when the device is booted, and then loop() takes over.
- */
 void setup()
 {
-	// Start the Serial communication to send messages to the computer.
-	Serial.begin( 115200 );
-	while( !Serial )
-		delay( 100 );
-	Wire.setPins( SDA1, SCL1 );	// This is what selects the Stemma QT port, otherwise the two pin headers will be I2C.
-//	Wire1.setPins( SDA1, SCL1 );
-	Wire.begin();
+	delay( 500 );
 
 #if defined( NEOPIXEL_POWER )
 	// If this board has a power control pin, we must set it to output and high in order to enable the NeoPixels.
@@ -72,12 +63,18 @@ void setup()
 	pixels.begin();
 	pixels.setBrightness( 20 );
 
-	// Set color to gray to indicate wetup is underway.
-	pixels.fill( 0x0000FF );
+	// Set the LED color to gray to indicate setup is underway.
+	pixels.fill( 0x808080 );
 	pixels.show();
 
-	delay( 10 );
-	Serial.println( '\n' );
+	// Start the Serial communication to send messages to the computer.
+	Serial.begin( 115200 );
+	if( !Serial )
+		delay( 1000 );
+	Wire.setPins( SDA1, SCL1 );	// This is what selects the Stemma QT port, otherwise the two pin headers will be I2C.
+	Wire.begin();
+
+	Serial.println();
 	Serial.println( sketchName + " is beginning its setup()." );
 	Serial.println( __FILE__ );
 
@@ -90,7 +87,7 @@ void setup()
 	// Get the MAC address and store it in macAddress.
 	snprintf( macAddress, 18, "%s", WiFi.macAddress().c_str() );
 
-	// Try to connect to the configured WiFi network, up to 10 times.
+	// Try to connect to the configured WiFi network, up to 20 times.
 	wifiConnect( 20 );
 
 	Serial.println( "Initializing the BME2688 sensor..." );
@@ -99,17 +96,17 @@ void setup()
 		while( 1 )
 		{
 			Serial.println( "Could not find a valid BME2688 sensor, check wiring!" );
-			// Set color to red and wait one second.
+			// Set the LED color to red and wait one second.
 			pixels.fill( 0xFF0000 );
 			pixels.show();
 			delay( 1000 );
-			// Turn the LED off and wait a half second.
-			pixels.fill( 0x000000 );
+			// Set the LED color to yellow and wait a half second.
+			pixels.fill( 0xFFFF00 );
 			pixels.show();
 			delay( 500 );
 		}
 	}
-	Serial.println( "Initializing the BME2688 sensor..." );
+	Serial.println( "BME2688 has been initialized." );
 
 	// Set up oversampling and filter initialization
 	bme.setTemperatureOversampling( BME680_OS_8X );
@@ -143,8 +140,14 @@ void wifiConnect( int maxAttempts )
 	// Loop until WiFi has connected.
 	while( WiFi.status() != WL_CONNECTED && i < maxAttempts )
 	{
-		delay( 1000 );
 		Serial.println( "Waiting for a connection..." );
+		// Set the LED color to red and wait one second.
+		pixels.fill( 0xFF0000 );
+		pixels.show();
+		delay( 1000 );
+		// Turn the LED off.
+		// Set the LED color to yellow.
+		pixels.show();
 		Serial.print( "WiFi status: " );
 		Serial.println( WiFi.status() );
 		logString = ++i;
@@ -160,6 +163,10 @@ void wifiConnect( int maxAttempts )
 	Serial.print( "IP address: " );
 	snprintf( ipAddress, 16, "%d.%d.%d.%d", WiFi.localIP()[0], WiFi.localIP()[1], WiFi.localIP()[2], WiFi.localIP()[3] );
 	Serial.println( ipAddress );
+
+	// Set the LED color to green.
+	pixels.fill( 0x00FF00 );
+	pixels.show();
 } // End of wifiConnect() function.
 
 
@@ -175,9 +182,15 @@ void mqttConnect( int maxAttempts )
 		if( mqttClient.connect( macAddress ) )
 		{
 			Serial.println( "connected!" );
+			// Set the LED color to green.
+			pixels.fill( 0x00FF00 );
+			pixels.show();
 		}
 		else
 		{
+			// Set the LED color to red.
+			pixels.fill( 0xFF0000 );
+			pixels.show();
 			Serial.print( " failed, return code: " );
 			Serial.print( mqttClient.state() );
 			Serial.println( " try again in 2 seconds" );
@@ -186,6 +199,10 @@ void mqttConnect( int maxAttempts )
 		}
 		i++;
 	}
+	mqttClient.setBufferSize( 512 );
+	char mqttString[512];
+	snprintf( mqttString, 512, "{\n\t\"sketch\": \"%s\",\n\t\"mac\": \"%s\",\n\t\"ip\": \"%s\"\n}", sketchName, macAddress, ipAddress );
+	mqttClient.publish( "espConnect", mqttString );
 } // End of mqttConnect() function.
 
 
@@ -221,20 +238,12 @@ void readBme()
 }
 
 
-/**
- * The loop() function begins after setup(), and repeats as long as the unit is powered.
- */
 void loop()
 {
-	loopCount++;
-	Serial.println();
-	Serial.println( sketchName );
-
-	// Set color to red and wait a half second.
-	pixels.fill( 0xFF0000 );
+	// Set the LED color to yellow.
+	pixels.fill( 0xFFFF00 );
 	pixels.show();
-	delay( 500 );
-
+	delay( 100 );
 
 	// Check the mqttClient connection state.
 	if( !mqttClient.connected() )
@@ -245,39 +254,63 @@ void loop()
 	// The loop() function facilitates the receiving of messages and maintains the connection to the broker.
 	mqttClient.loop();
 
-	// Read and print the BME688 data.
-	readBme();
+	unsigned long time = millis();
 
-	// Set color to blue and wait a half second.
-	pixels.fill( 0x0000FF );
-	pixels.show();
-	delay( 500 );
-
-	// Prepare a String to hold the JSON.
-	char mqttString[256];
-	// Write the readings to the String in JSON format.
-	snprintf( mqttString, 512, "{\n\t\"sketch\": \"%s\",\n\t\"mac\": \"%s\",\n\t\"ip\": \"%s\",\n\t\"tempC\": %.2f,\n\t\"humidity\": %.2f,\n\t\"pressure\": %.2f,\n\t\"altitude\": %.2f,\n\t\"gas\": %.2f,\n\t\"uptime\": %d,\n\t\"notes\": \"%s\"\n}", sketchName, macAddress, ipAddress, bme.temperature, bme.humidity, ( bme.pressure / 100.0 ), ( bme.readAltitude( SEALEVELPRESSURE_HPA ) ), ( bme.gas_resistance / 1000.0 ), loopCount, notes );
-//	snprintf( mqttString, 256, "{\n\t\"sketch\": \"%s\",\n\t\"mac\": \"%s\",\n\t\"ip\": \"%s\",\n\t\"uptime\": %d,\n\t\"notes\": \"%s\"\n}", sketchName, macAddress, ipAddress, loopCount, notes );
-	if( mqttClient.connected() )
+	if( ( time > publishDelay ) && ( time - publishDelay ) > lastPublish )
 	{
-		// Publish the JSON to the MQTT broker.
-		mqttClient.publish( mqttTopic, mqttString );
-	}
-	else
-	{
-		Serial.println( "Lost connection to the MQTT broker between the start of this loop and now!" );
-	}
-	// Print the JSON to the Serial port.
-	Serial.println( mqttString );
+		loopCount++;
+		Serial.println();
+		Serial.println( sketchName );
+		Serial.print( "Connected to broker at \"" );
+		Serial.print( mqttBroker );
+		Serial.print( ":" );
+		Serial.print( mqttPort );
+		Serial.println( "\"" );
 
-	String logString = "loopCount: ";
-	logString += loopCount;
-	Serial.println( logString );
-	Serial.println( "Pausing for 60 seconds..." );
+		// Print the signal strength:
+		long rssi = WiFi.RSSI();
+		Serial.print( "WiFi RSSI: " );
+		Serial.println( rssi );
 
-	// Set color to green and wait one minute.
+		// Read and print the BME688 data.
+		readBme();
+
+		// Set the LED color to blue and wait a half second.
+		pixels.fill( 0x0000FF );
+		pixels.show();
+		delay( 500 );
+
+		// Prepare a String to hold the JSON.
+		char mqttString[512];
+		// Write the readings to the String in JSON format.
+		snprintf( mqttString, 512, "{\n\t\"sketch\": \"%s\",\n\t\"mac\": \"%s\",\n\t\"ip\": \"%s\",\n\t\"tempC\": %.2f,\n\t\"humidity\": %.2f,\n\t\"pressure\": %.2f,\n\t\"altitude\": %.2f,\n\t\"gas\": %.2f,\n\t\"rssi\": %ld,\n\t\"uptime\": %d,\n\t\"notes\": \"%s\"\n}", sketchName, macAddress, ipAddress, bme.temperature, bme.humidity, ( bme.pressure / 100.0 ), ( bme.readAltitude( SEALEVELPRESSURE_HPA ) ), ( bme.gas_resistance / 1000.0 ), rssi, loopCount, notes );
+		if( mqttClient.connected() )
+		{
+			Serial.print( "Publishing to topic \"" );
+			Serial.print( mqttTopic );
+			Serial.println( "\"" );
+			// Publish the JSON to the MQTT broker.
+			mqttClient.publish( mqttTopic, mqttString );
+		}
+		else
+		{
+			Serial.println( "Lost connection to the MQTT broker between the start of this loop and now!" );
+		}
+		// Print the JSON to the Serial port.
+		Serial.println( mqttString );
+
+		String logString = "loopCount: ";
+		logString += loopCount;
+		Serial.println( logString );
+		Serial.println( "Pausing for 60 seconds..." );
+
+		lastPublish = millis();
+		Serial.print( "Next publish in " );
+		Serial.print( publishDelay / 1000 );
+		Serial.println( " seconds.\n" );
+	}
+	// Set the LED color to green.
 	pixels.fill( 0x00FF00 );
 	pixels.show();
-
-	delay( 60000 );	// Wait for 60 seconds.
+	delay( 100 );
 } // End of loop() function.
