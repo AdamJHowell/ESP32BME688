@@ -19,6 +19,17 @@
 #define BME_MISO 12
 #define BME_MOSI 11
 #define BME_CS 10
+#define RED 0xFF0000
+#define ORANGE 0xFFA500
+#define YELLOW 0xFFFF00
+#define GREEN 0x00FF00
+#define BLUE 0x0000FF
+#define INDIGO 0x4B0082
+#define VIOLET 0xEE82EE
+#define PURPLE 0x800080
+#define BLACK 0x000000
+#define GRAY 0x808080
+#define WHITE 0xFFFFFF
 
 
 /**
@@ -64,7 +75,7 @@ void setup()
 	pixels.setBrightness( 20 );
 
 	// Set the LED color to gray to indicate setup is underway.
-	pixels.fill( 0x808080 );
+	pixels.fill( GRAY );
 	pixels.show();
 
 	// Start the Serial communication to send messages to the computer.
@@ -97,11 +108,11 @@ void setup()
 		{
 			Serial.println( "Could not find a valid BME2688 sensor, check wiring!" );
 			// Set the LED color to red and wait one second.
-			pixels.fill( 0xFF0000 );
+			pixels.fill( RED );
 			pixels.show();
 			delay( 1000 );
 			// Set the LED color to yellow and wait a half second.
-			pixels.fill( 0xFFFF00 );
+			pixels.fill( YELLOW );
 			pixels.show();
 			delay( 500 );
 		}
@@ -142,7 +153,7 @@ void wifiConnect( int maxAttempts )
 	{
 		Serial.println( "Waiting for a connection..." );
 		// Set the LED color to red and wait one second.
-		pixels.fill( 0xFF0000 );
+		pixels.fill( RED );
 		pixels.show();
 		delay( 1000 );
 		// Turn the LED off.
@@ -165,7 +176,7 @@ void wifiConnect( int maxAttempts )
 	Serial.println( ipAddress );
 
 	// Set the LED color to green.
-	pixels.fill( 0x00FF00 );
+	pixels.fill( GREEN );
 	pixels.show();
 } // End of wifiConnect() function.
 
@@ -183,13 +194,13 @@ void mqttConnect( int maxAttempts )
 		{
 			Serial.println( "connected!" );
 			// Set the LED color to green.
-			pixels.fill( 0x00FF00 );
+			pixels.fill( GREEN );
 			pixels.show();
 		}
 		else
 		{
 			// Set the LED color to red.
-			pixels.fill( 0xFF0000 );
+			pixels.fill( RED );
 			pixels.show();
 			Serial.print( " failed, return code: " );
 			Serial.print( mqttClient.state() );
@@ -241,7 +252,7 @@ void readBme()
 void loop()
 {
 	// Set the LED color to yellow.
-	pixels.fill( 0xFFFF00 );
+	pixels.fill( YELLOW );
 	pixels.show();
 	delay( 100 );
 
@@ -276,7 +287,7 @@ void loop()
 		readBme();
 
 		// Set the LED color to blue and wait a half second.
-		pixels.fill( 0x0000FF );
+		pixels.fill( BLUE );
 		pixels.show();
 		delay( 500 );
 
@@ -310,7 +321,7 @@ void loop()
 		Serial.println( " seconds.\n" );
 	}
 	// Set the LED color to green.
-	pixels.fill( 0x00FF00 );
+	pixels.fill( GREEN );
 	pixels.show();
 	delay( 100 );
 } // End of loop() function.
