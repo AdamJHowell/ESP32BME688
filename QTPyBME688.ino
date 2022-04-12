@@ -13,7 +13,7 @@
 #include <Adafruit_NeoPixel.h>	// The Adafruit NeoPixel library to drive the RGB LED on the QT Py.	https://github.com/adafruit/Adafruit_NeoPixel
 
 
-// How many internal neopixels do we have? some boards have more than one!
+// NUMPIXELS sets the number of NeoPixel elements.
 #define NUMPIXELS        1
 #define BME_SCK 13
 #define BME_MISO 12
@@ -156,9 +156,6 @@ void wifiConnect( int maxAttempts )
 		pixels.fill( RED );
 		pixels.show();
 		delay( 1000 );
-		// Turn the LED off.
-		// Set the LED color to yellow.
-		pixels.show();
 		Serial.print( "WiFi status: " );
 		Serial.println( WiFi.status() );
 		logString = ++i;
@@ -189,6 +186,9 @@ void mqttConnect( int maxAttempts )
 	while( !mqttClient.connected() && i < maxAttempts )
 	{
 		Serial.print( "Attempting MQTT connection..." );
+		// Set the LED color to yellow.
+		pixels.fill( ORANGE );
+		pixels.show();
 		// Connect to the broker using the MAC address for a clientID.  This guarantees that the clientID is unique.
 		if( mqttClient.connect( macAddress ) )
 		{
@@ -251,10 +251,10 @@ void readBme()
 
 void loop()
 {
-	// Set the LED color to yellow.
-	pixels.fill( YELLOW );
+	// Set the LED color to orange.
+	pixels.fill( ORANGE );
 	pixels.show();
-	delay( 100 );
+	delay( 10 );
 
 	// Check the mqttClient connection state.
 	if( !mqttClient.connected() )
@@ -313,7 +313,6 @@ void loop()
 		String logString = "loopCount: ";
 		logString += loopCount;
 		Serial.println( logString );
-		Serial.println( "Pausing for 60 seconds..." );
 
 		lastPublish = millis();
 		Serial.print( "Next publish in " );
