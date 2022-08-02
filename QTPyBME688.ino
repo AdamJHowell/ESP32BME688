@@ -101,12 +101,12 @@ void setup()
 	// Try to connect to the configured WiFi network, up to 20 times.
 	wifiConnect( 20 );
 
-	Serial.println( "Initializing the BME2688 sensor..." );
+	Serial.println( "Initializing the BME688 sensor..." );
 	if( !bme.begin() )
 	{
 		while( 1 )
 		{
-			Serial.println( "Could not find a valid BME2688 sensor, check wiring!" );
+			Serial.println( "Could not find a valid BME688 sensor, check wiring!" );
 			// Set the LED color to red and wait one second.
 			pixels.fill( RED );
 			pixels.show();
@@ -117,7 +117,7 @@ void setup()
 			delay( 500 );
 		}
 	}
-	Serial.println( "BME2688 has been initialized." );
+	Serial.println( "BME688 has been initialized." );
 
 	// Set up oversampling and filter initialization
 	bme.setTemperatureOversampling( BME680_OS_8X );
@@ -245,7 +245,6 @@ void readBme()
 	Serial.println( " m" );
 
 	Serial.println();
-//	delay( 6000 );
 }
 
 
